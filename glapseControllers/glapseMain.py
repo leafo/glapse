@@ -27,8 +27,11 @@ import re
 
 from gettext import gettext as _
 
+# quote shell argument
+def q(s):
+    return "'" + s.replace("'", "'\\''") + "'"
+
 class GlapseMain:
-    
     def __init__(self):
         self.outputDir = os.getenv('HOME')
         self.quality = 80
@@ -36,6 +39,7 @@ class GlapseMain:
         self.numDigits = 9
         self.currentShot = 0
         self.done = True
+        self.captureWebcam = True
     
     def startScreenshots(self, output, quality, interval):
         print 'Starting taking screenshots...'
@@ -85,19 +89,37 @@ class GlapseMain:
         
         return False
 
+    def _filePath(self, name):
+        return self.outputDir + os.sep + name
+
     def _takeScreenshot(self):
         # Run until were done
         while not self.done:
             # Build scrot command
-            fileName = "%09d" % (self.currentShot)
-            fileName = fileName + '.jpg'
+            baseName = "%09d" % (self.currentShot)
+            fileName = baseName + '.png'
+            filePath = self._filePath(fileName)
             
-            command = 'scrot -q ' + str(self.quality) + ' ' + self.outputDir + os.sep + fileName
+            command = 'scrot -q ' + str(self.quality) + ' ' + q(filePath)
             
             print 'Taking screenshot: ' + command + '...'
             
             os.system(command)
-            
+
+            if self.captureWebcam:
+                webcamFilePath = self._filePath(baseName + "_webcam.jpg")
+                webcamCommand = "fswebcam --no-banner %s" % q(webcamFilePath)
+
+                print 'Capturing webcam: ' + webcamCommand + '...'
+                os.system(webcamCommand)
+
+                combiendFilePath = self._filePath(baseName + "_combined.png")
+                combineCommand = "composite -gravity SouthEast -geometry +10+10 \( %s -resize 600x330 \) %s %s" % (q(webcamFilePath), q(filePath), q(combiendFilePath))
+
+                print "Combining webcam: " + combineCommand + "..."
+                os.system(combineCommand)
+
+
             # Schedule next screenshot
             print 'Scheduling next screenshot...'
             self.currentShot = self.currentShot + 1
